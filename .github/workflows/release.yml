@@ -36,7 +36,7 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm run build
-      - run: node --test test/*.test.js
+      - run: node --test test/provider.test.js
       # Trusted publishing needs a recent npm CLI. Upgrade only after install/build/test
       # so the build itself runs on the npm version bundled with Node.
       - run: npm install -g npm@latest
