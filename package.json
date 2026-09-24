@@ -1,0 +1,34 @@
+{
+  "name": "@apimaster/ai-sdk-provider",
+  "version": "0.1.0",
+  "description": "Vercel AI SDK provider for APIMaster and other OpenAI-compatible gateways, with chat, image and video helpers",
+  "keywords": ["ai-sdk", "vercel", "ai", "llm", "openai-compatible", "apimaster", "sora", "image-generation"],
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": ["dist", "README.md", "LICENSE"],
+  "engines": { "node": ">=18.17" },
+  "scripts": {
+    "build": "tsc",
+    "test": "node --test test/*.test.js",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build && npm test"
+  },
+  "dependencies": {
+    "@ai-sdk/openai-compatible": "^1.0.0",
+    "@ai-sdk/provider": "^2.0.0",
+    "@ai-sdk/provider-utils": "^3.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.2"
+  },
+  "repository": { "type": "git", "url": "git+https://github.com/apimaster-ai/apimaster-ai-provider.git" }
+}

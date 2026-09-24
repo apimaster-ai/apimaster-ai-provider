@@ -1,0 +1,43 @@
+# Publishes to npm when a version tag is pushed:  git tag v0.1.0 && git push --tags
+#
+# Uses npm Trusted Publishing (OIDC): no npm token is stored anywhere. npm is retiring
+# direct publishing with 2FA-bypass tokens (announced 2026-07-08, effective around
+# January 2027), so a long-lived NPM_TOKEN would stop working.
+#
+# One-time setup, per package, on npmjs.com:
+#   package → Settings → Trusted publishing → GitHub Actions
+#     organization/user: apimaster-ai   repository: <this repo>   workflow: release.yml
+# The package has to exist before a trusted publisher can be attached, so publish the
+# first version by hand (`npm publish --access public`, with 2FA), then let tags do the rest.
+name: release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+      - name: Tag must match package.json
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          pkg="$(node -p "require('./package.json').version")"
+          [ "$tag" = "$pkg" ] || { echo "tag v$tag != package.json $pkg"; exit 1; }
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run build
+      - run: node --test test/*.test.js
+      # Trusted publishing needs a recent npm CLI. Upgrade only after install/build/test
+      # so the build itself runs on the npm version bundled with Node.
+      - run: npm install -g npm@latest
+      - run: npm publish --access public --provenance
