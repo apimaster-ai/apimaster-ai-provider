@@ -5,8 +5,10 @@ and any other OpenAI-compatible gateway — plus `generateVideo`, which the AI S
 model type for.
 
 ```bash
-npm i @apimaster/ai-sdk-provider ai
+npm i @apimaster/ai-sdk-provider ai zod
 ```
+
+0.2.x targets AI SDK 7 and needs Node 22 or later. On AI SDK 5, use `@apimaster/ai-sdk-provider@0.1`.
 
 ```ts
 import { apimaster } from '@apimaster/ai-sdk-provider';
@@ -35,7 +37,7 @@ const apimaster = createAPIMaster({
 | --- | --- |
 | `apimaster(id)` / `apimaster.chatModel(id)` | `@ai-sdk/openai-compatible` chat model |
 | `apimaster.completionModel(id)` | completion model |
-| `apimaster.textEmbeddingModel(id)` | embedding model |
+| `apimaster.embeddingModel(id)` | embedding model |
 | `apimaster.imageModel(id)` | image model (`generateImage` from `ai`) |
 | `apimaster.generateVideo({...})` | submit + poll + MP4 URL |
 
@@ -72,7 +74,7 @@ before assuming the model is broken.
 ## Images
 
 ```ts
-import { experimental_generateImage as generateImage } from 'ai';
+import { generateImage } from 'ai';
 
 const { image } = await generateImage({
   model: apimaster.imageModel('gpt-image-2'),

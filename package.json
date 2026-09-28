@@ -1,6 +1,6 @@
 {
   "name": "@apimaster/ai-sdk-provider",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Vercel AI SDK provider for APIMaster and other OpenAI-compatible gateways, with chat, image and video helpers",
   "keywords": [
     "ai-sdk",
@@ -29,7 +29,7 @@
     "LICENSE"
   ],
   "engines": {
-    "node": ">=18.17"
+    "node": ">=22"
   },
   "scripts": {
     "build": "tsc",
@@ -38,12 +38,16 @@
     "prepublishOnly": "npm run build && npm test"
   },
   "dependencies": {
-    "@ai-sdk/openai-compatible": "^1.0.0",
-    "@ai-sdk/provider": "^2.0.0",
-    "@ai-sdk/provider-utils": "^3.0.0"
+    "@ai-sdk/openai-compatible": "^3.0.57",
+    "@ai-sdk/provider": "^4.0.18",
+    "@ai-sdk/provider-utils": "^5.0.49"
+  },
+  "peerDependencies": {
+    "zod": "^3.25.76 || ^4.1.8"
   },
   "devDependencies": {
-    "typescript": "^5.8.2"
+    "typescript": "^5.8.2",
+    "zod": "^4.1.8"
   },
   "repository": {
     "type": "git",
