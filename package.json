@@ -1,6 +1,6 @@
 {
   "name": "@apimaster/ai-sdk-provider",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Vercel AI SDK provider for APIMaster and other OpenAI-compatible gateways, with chat, image and video helpers",
   "keywords": [
     "ai-sdk",

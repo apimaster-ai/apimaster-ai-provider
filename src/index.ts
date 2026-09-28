@@ -37,8 +37,6 @@ export type APIMasterImageModelId =
 	| (string & {});
 
 export type APIMasterVideoModelId =
-	| 'sora-2'
-	| 'sora-2-pro'
 	| 'seedance-2.5'
 	| 'seedance-2.0'
 	| 'kling-v3-motion-control'
@@ -71,7 +69,7 @@ export interface GenerateVideoOptions {
 	prompt: string;
 	/** 4, 8, 12, 16 or 20. Billed per second of output. */
 	durationSeconds?: number;
-	/** `720p` everywhere; `1024p` and `1080p` need a pro model. */
+	/** `720p` works everywhere; higher tiers depend on the model. */
 	resolution?: '720p' | '1024p' | '1080p';
 	/**
 	 * Always set this when passing a reference image: a portrait reference with no aspect
@@ -82,7 +80,10 @@ export interface GenerateVideoOptions {
 	referenceImageUrl?: string;
 	/** Download the MP4 and return it as bytes. Off by default — files are large. */
 	download?: boolean;
-	/** Give up after this long. Typical jobs finish in one to three minutes. */
+	/**
+	 * Give up after this long (default 30 minutes). Video is slow: seedance-2.5 took about
+	 * 15 minutes for 4 seconds. A job that outlives this is not lost; the error says where to poll.
+	 */
 	maxWaitMs?: number;
 	abortSignal?: AbortSignal;
 }
@@ -146,7 +147,7 @@ export function createAPIMaster(options: APIMasterProviderSettings = {}): APIMas
 	const doFetch = options.fetch ?? globalThis.fetch;
 
 	const generateVideo = async (opts: GenerateVideoOptions): Promise<GeneratedVideo> => {
-		const model = opts.model ?? 'sora-2';
+		const model = opts.model ?? 'seedance-2.5';
 		const started = Date.now();
 		const headers = {
 			Authorization: `Bearer ${getKey()}`,
@@ -177,18 +178,33 @@ export function createAPIMaster(options: APIMasterProviderSettings = {}): APIMas
 		const taskId = submitted.data?.[0]?.task_id ?? submitted.id;
 		if (!taskId) throw new Error(`No task id in response: ${JSON.stringify(submitted)}`);
 
-		const deadline = Date.now() + (opts.maxWaitMs ?? 900_000);
+		const deadline = Date.now() + (opts.maxWaitMs ?? 1_800_000);
 		// The first poll is delayed: the job is never ready sooner.
 		await sleep(15_000, opts.abortSignal);
 
+		let failures = 0;
 		while (Date.now() < deadline) {
-			const statusResponse = await doFetch(`${baseURL}/videos/${encodeURIComponent(taskId)}`, {
-				headers,
-				signal: opts.abortSignal,
-			});
+			// The job keeps running server-side and is already paid for, so a dropped connection or
+			// a 5xx while polling is retried (up to 5 in a row) instead of abandoning it.
+			let statusResponse: Response;
+			try {
+				statusResponse = await doFetch(`${baseURL}/videos/${encodeURIComponent(taskId)}`, {
+					headers,
+					signal: opts.abortSignal,
+				});
+			} catch (error) {
+				if (opts.abortSignal?.aborted || ++failures >= 5) throw error;
+				await sleep(4_000, opts.abortSignal);
+				continue;
+			}
+			if (statusResponse.status >= 500 && ++failures < 5) {
+				await sleep(4_000, opts.abortSignal);
+				continue;
+			}
 			if (!statusResponse.ok) {
 				throw new Error(explain(statusResponse.status, await statusResponse.text()));
 			}
+			failures = 0;
 			const payload = (await statusResponse.json()) as { status?: string; url?: string };
 			if (payload.status === 'completed') {
 				const url = payload.url ?? `${baseURL}/videos/${encodeURIComponent(taskId)}/content`;
@@ -199,7 +215,13 @@ export function createAPIMaster(options: APIMasterProviderSettings = {}): APIMas
 					elapsedMs: Date.now() - started,
 				};
 				if (opts.download) {
-					const media = await doFetch(url, { headers, redirect: 'follow', signal: opts.abortSignal });
+					// Only the gateway itself gets the key; a CDN link from the gateway does not.
+					const sameHost = new URL(url, baseURL).host === new URL(baseURL).host;
+					const media = await doFetch(url, {
+						headers: sameHost ? headers : {},
+						redirect: 'follow',
+						signal: opts.abortSignal,
+					});
 					if (!media.ok) throw new Error(explain(media.status, 'download failed'));
 					result.bytes = new Uint8Array(await media.arrayBuffer());
 				}

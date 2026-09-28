@@ -15,6 +15,7 @@ function stubFetch(script) {
 		calls.push({ url: String(url), method: init.method ?? 'GET', body: init.body ? JSON.parse(init.body) : null, headers: init.headers });
 		const step = script.shift();
 		if (!step) throw new Error(`unexpected extra request to ${url}`);
+		if (step.throws) throw step.throws;
 		return {
 			ok: step.status === undefined || step.status < 400,
 			status: step.status ?? 200,
@@ -77,7 +78,7 @@ describe('generateVideo', () => {
 		const video = await provider.generateVideo({ prompt: 'a waterfall', durationSeconds: 8 });
 
 		assert.equal(video.taskId, 'task_abc');
-		assert.equal(video.model, 'sora-2');
+		assert.equal(video.model, 'seedance-2.5');
 		assert.match(video.url, /\/videos\/task_abc\/content$/);
 		assert.ok(video.elapsedMs >= 0);
 		assert.equal(calls.length, 4, 'one submit plus three polls');
@@ -191,5 +192,41 @@ describe('credentials', () => {
 		await provider.generateVideo({ prompt: 'x' });
 		assert.equal(calls[0].headers.Authorization, 'Bearer sk-from-env');
 		delete process.env.APIMASTER_API_KEY;
+	});
+});
+
+describe('generateVideo resilience', () => {
+	test('a dropped connection and a 502 while polling do not abandon the job', async () => {
+		const { fetchImpl, calls } = stubFetch([
+			{ json: { data: [{ task_id: 'task_r' }] } },
+			{ throws: new TypeError('fetch failed') },
+			{ status: 502, text: 'bad gateway' },
+			{ json: { status: 'completed' } },
+		]);
+		const provider = createAPIMaster({ apiKey: 'sk-test', fetch: fetchImpl });
+		const video = await provider.generateVideo({ prompt: 'x' });
+		assert.equal(video.taskId, 'task_r');
+		assert.equal(calls.length, 4);
+	});
+
+	test('a 4xx while polling is still an error', async () => {
+		const { fetchImpl } = stubFetch([
+			{ json: { data: [{ task_id: 'task_4' }] } },
+			{ status: 404, text: 'no such task' },
+		]);
+		const provider = createAPIMaster({ apiKey: 'sk-test', fetch: fetchImpl });
+		await assert.rejects(provider.generateVideo({ prompt: 'x' }), /404/);
+	});
+
+	test('the key goes to the gateway only, never to a CDN download link', async () => {
+		const { fetchImpl, calls } = stubFetch([
+			{ json: { data: [{ task_id: 't' }] } },
+			{ json: { status: 'completed', url: 'https://cdn.example.com/v.mp4' } },
+			{ bytes: new ArrayBuffer(4) },
+		]);
+		const provider = createAPIMaster({ apiKey: 'sk-test', fetch: fetchImpl });
+		await provider.generateVideo({ prompt: 'x', download: true });
+		assert.equal(calls[2].url, 'https://cdn.example.com/v.mp4');
+		assert.equal(calls[2].headers?.Authorization, undefined);
 	});
 });

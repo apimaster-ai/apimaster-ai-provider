@@ -90,7 +90,7 @@ the request a generous timeout.
 
 ```ts
 const video = await apimaster.generateVideo({
-  model: 'sora-2',
+  model: 'seedance-2.5',
   prompt: 'a waterfall forming a rainbow, cinematic',
   durationSeconds: 4,
   aspectRatio: '16:9',
@@ -98,6 +98,9 @@ const video = await apimaster.generateVideo({
 
 console.log(video.url, video.elapsedMs);
 ```
+
+Video is slow: `seedance-2.5` took about 15 minutes for a 4-second clip, so
+`generateVideo` waits up to 30 minutes by default (`maxWaitMs`).
 
 Image-to-video:
 
